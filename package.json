@@ -1,0 +1,21 @@
+{
+  "name": "tsxaml-kit",
+  "version": "0.1.0",
+  "description": "TS-XAML: XML -> TypeScript object tree factory with DI, bindings, and observables",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "demo": "npx tsx src/examples/demo.ts"
+  },
+  "devDependencies": {
+    "@types/xmldom": "^0.1.34",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.2"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "xmldom": "^0.6.0"
+  }
+}

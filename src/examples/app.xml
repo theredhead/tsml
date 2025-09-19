@@ -1,0 +1,4 @@
+<ui:VBox xmlns:ui="@theredhead/ui" xmlns:x="tsx" spacing="8">
+  <ui:Label text="Hello"/>
+  <ui:Button text="Click me"/>
+</ui:VBox>
