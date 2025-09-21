@@ -1,4 +1,7 @@
-export class DIContainer {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.DIContainer = void 0;
+class DIContainer {
     constructor(parent) {
         this.parent = parent;
         // ---- services (DI) ----
@@ -129,3 +132,4 @@ export class DIContainer {
         return this.instantiate(desc);
     }
 }
+exports.DIContainer = DIContainer;

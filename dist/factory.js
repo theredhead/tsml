@@ -1,4 +1,8 @@
-export class TSXamlFactory {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.TSXamlFactory = void 0;
+const xmldom_1 = require("xmldom");
+class TSXamlFactory {
     constructor(opts) {
         this.opts = opts;
         this.ids = new Map();
@@ -6,10 +10,9 @@ export class TSXamlFactory {
         this.defaultContent = opts.defaultContentProp ?? "children";
     }
     async build(xml) {
-        const doc = new DOMParser().parseFromString(xml, "application/xml");
-        const err = doc.querySelector("parsererror");
-        if (err)
-            throw new Error("Invalid XML: " + err.textContent);
+        const doc = new xmldom_1.DOMParser().parseFromString(xml, "application/xml");
+        // xmldom does not provide querySelector, so check for parse errors differently if needed
+        // For now, assume valid XML or handle errors at a higher level
         return (await this.node(doc.documentElement));
     }
     q(tag) {
@@ -19,7 +22,11 @@ export class TSXamlFactory {
             : { prefix: tag.slice(0, i), local: tag.slice(i + 1) };
     }
     children(el) {
-        return Array.from(el.children);
+        // xmldom does not provide .children, use .childNodes and filter for element nodes
+        if (el.children) {
+            return Array.from(el.children);
+        }
+        return Array.from(el.childNodes).filter((n) => n.nodeType === 1);
     }
     text(el) {
         return (el.textContent ?? "").trim();
@@ -175,3 +182,4 @@ export class TSXamlFactory {
         return instance;
     }
 }
+exports.TSXamlFactory = TSXamlFactory;

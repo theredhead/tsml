@@ -1,40 +1,64 @@
-var _a, _b;
-const OBS = Symbol('obs.map'); // Map<KeyPath, Entry>
-const TOK = Symbol('obs.tokens'); // Map<ObserverToken, { keyPath: KeyPath }>
-export class ObservableHost {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ObservableHost = void 0;
+exports.ObservableClass = ObservableClass;
+/**
+ * Class decorator to mix ObservableHost methods into a class prototype.
+ */
+function ObservableClass(Ctor) {
+    const hostProto = ObservableHost.prototype;
+    Object.getOwnPropertyNames(hostProto).forEach((key) => {
+        if (key === "constructor")
+            return;
+        if (!Ctor.prototype[key]) {
+            Object.defineProperty(Ctor.prototype, key, Object.getOwnPropertyDescriptor(hostProto, key));
+        }
+    });
+    // Patch constructor to initialize private fields
+    const OBS_SYM = Object.getOwnPropertySymbols(hostProto).find((s) => s.description === "obs.map");
+    const TOK_SYM = Object.getOwnPropertySymbols(hostProto).find((s) => s.description === "obs.tokens");
+    return class extends Ctor {
+        constructor(...args) {
+            super(...args);
+            this["__ObservableHost_OBS"] = new Map();
+            this["__ObservableHost_TOK"] = new Map();
+        }
+    };
+}
+class ObservableHost {
     constructor() {
-        this[_a] = new Map();
-        this[_b] = new Map();
+        this.__ObservableHost_OBS = new Map();
+        this.__ObservableHost_TOK = new Map();
     }
     registerObserver(keyPath, observer) {
         const parts = split(keyPath);
-        let entry = this[OBS].get(keyPath);
+        let entry = this.__ObservableHost_OBS.get(keyPath);
         if (!entry) {
             entry = { parts, observers: new Map() };
-            this[OBS].set(keyPath, entry);
+            this.__ObservableHost_OBS.set(keyPath, entry);
         }
         const token = Symbol(`obs:${keyPath}`);
         entry.observers.set(token, observer);
-        this[TOK].set(token, { keyPath });
+        this.__ObservableHost_TOK.set(token, { keyPath });
         return token;
     }
     unregisterObserver(token) {
-        const meta = this[TOK].get(token);
+        const meta = this.__ObservableHost_TOK.get(token);
         if (!meta)
             return;
-        const entry = this[OBS].get(meta.keyPath);
+        const entry = this.__ObservableHost_OBS.get(meta.keyPath);
         if (entry) {
             entry.observers.delete(token);
             if (entry.observers.size === 0)
-                this[OBS].delete(meta.keyPath);
+                this.__ObservableHost_OBS.delete(meta.keyPath);
         }
-        this[TOK].delete(token);
+        this.__ObservableHost_TOK.delete(token);
     }
     /** propertyPath is the concrete path that changed, e.g. "address.city". */
     notify(propertyPath, value) {
         const pathParts = split(propertyPath);
         const called = new Set();
-        for (const { parts: pat, observers } of this[OBS].values()) {
+        for (const { parts: pat, observers, } of this.__ObservableHost_OBS.values()) {
             if (match(pat, pathParts)) {
                 for (const obs of observers.values()) {
                     if (!called.has(obs)) {
@@ -46,12 +70,14 @@ export class ObservableHost {
         }
     }
 }
-_a = OBS, _b = TOK;
+exports.ObservableHost = ObservableHost;
 // helpers
-function split(k) { return k ? k.split('.').filter(Boolean) : []; }
+function split(k) {
+    return k ? k.split(".").filter(Boolean) : [];
+}
 /** Glob matcher over dot segments: '*' (one segment), '**' (zero+ segments). */
 function match(pat, path) {
-    if (!pat.includes('*') && !pat.includes('**')) {
+    if (!pat.includes("*") && !pat.includes("**")) {
         if (pat.length !== path.length)
             return false;
         for (let i = 0; i < pat.length; i++)
@@ -62,7 +88,7 @@ function match(pat, path) {
     let i = 0, j = 0;
     while (i < pat.length && j < path.length) {
         const t = pat[i];
-        if (t === '**') {
+        if (t === "**") {
             if (i === pat.length - 1)
                 return true;
             for (let k = j; k <= path.length; k++)
@@ -70,7 +96,7 @@ function match(pat, path) {
                     return true;
             return false;
         }
-        else if (t === '*') {
+        else if (t === "*") {
             i++;
             j++;
         }
@@ -81,7 +107,7 @@ function match(pat, path) {
             j++;
         }
     }
-    while (i < pat.length && pat[i] === '**')
+    while (i < pat.length && pat[i] === "**")
         i++;
     return i === pat.length && j === path.length;
 }

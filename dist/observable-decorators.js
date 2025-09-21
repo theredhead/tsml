@@ -1,4 +1,9 @@
-export function Observable(alsoNotifyFor = []) {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.Observable = Observable;
+exports.ObservableChild = ObservableChild;
+exports.Computed = Computed;
+function Observable(alsoNotifyFor = []) {
     return function (proto, key) {
         const slot = Symbol(`__${key}`);
         Object.defineProperty(proto, key, {
@@ -17,7 +22,7 @@ export function Observable(alsoNotifyFor = []) {
     };
 }
 /** Bridges child notifications upward as `${key}.${childPath}`. */
-export function ObservableChild(alsoNotifyFor = []) {
+function ObservableChild(alsoNotifyFor = []) {
     return function (proto, key) {
         const slot = Symbol(`__${key}`);
         let token = null;
@@ -47,7 +52,7 @@ export function ObservableChild(alsoNotifyFor = []) {
         });
     };
 }
-export function Computed(...deps) {
+function Computed(...deps) {
     return function (proto, key, desc) {
         const initKey = Symbol(`__init_${String(key)}`);
         const prev = proto.__initComputed;

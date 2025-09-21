@@ -1,4 +1,7 @@
-export class BindingEngine {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.BindingEngine = void 0;
+class BindingEngine {
     constructor(converters = {}) {
         this.converters = converters;
     }
@@ -68,3 +71,4 @@ export class BindingEngine {
         };
     }
 }
+exports.BindingEngine = BindingEngine;

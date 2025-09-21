@@ -11,5 +11,5 @@ const factory = new TSXamlFactory({
   container,
   defaultContentProp: "children",
 });
-const root = await factory.build(xml);
-console.log("Built root:", root);
+
+factory.build(xml).then(console.log);

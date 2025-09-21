@@ -1,8 +1,23 @@
-export * from './di.js';
-export * from './di-decorators.js';
-export * from './binding.js';
-export * from './observable-core.js';
-export * from './observable-decorators.js';
-export * from './content-decorator.js';
-export * from './factory.js';
-export * from './xml-to-ts-factory.js';
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __exportStar = (this && this.__exportStar) || function(m, exports) {
+    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+__exportStar(require("./di.js"), exports);
+__exportStar(require("./di-decorators.js"), exports);
+__exportStar(require("./binding.js"), exports);
+__exportStar(require("./observable-core.js"), exports);
+__exportStar(require("./observable-decorators.js"), exports);
+__exportStar(require("./content-decorator.js"), exports);
+__exportStar(require("./factory.js"), exports);

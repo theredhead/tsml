@@ -31,12 +31,14 @@ export class TSXamlFactory {
       ? { prefix: null, local: tag }
       : { prefix: tag.slice(0, i), local: tag.slice(i + 1) };
   }
-  private children(el: Element) {
+  private children(el: Element): Element[] {
     // xmldom does not provide .children, use .childNodes and filter for element nodes
     if ((el as any).children) {
       return Array.from((el as any).children);
     }
-    return Array.from(el.childNodes).filter((n: any) => n.nodeType === 1);
+    return <Element[]>(
+      (<unknown>Array.from(el.childNodes).filter((n: any) => n.nodeType === 1))
+    );
   }
   private text(el: Element) {
     return (el.textContent ?? "").trim();
@@ -190,9 +192,11 @@ export class TSXamlFactory {
         const slot = this.implicitSlotFor(el, Ctor);
         if (!slot)
           throw new Error(
-            `<${el.tagName}> has direct child <${child.tagName}> but no content slot declared.`
+            `<${el.tagName}> has direct child <${
+              (child as Element).tagName
+            }> but no content slot declared.`
           );
-        this.setProp(instance, slot, await this.node(child));
+        this.setProp(instance, slot, await this.node(child as Element));
       }
     }
 
