@@ -1,38 +1,80 @@
-import { DIContainer } from "./di.js";
-import { DOMParser } from "xmldom";
-import type { BindingEngine } from "./binding.js";
-
 export interface BuildOptions {
   container: DIContainer;
   xPrefix?: string;
   defaultContentProp?: string;
-  binding?: { engine: BindingEngine; context: any };
+  binding?: { engine: BindingEngine; context: unknown };
+}
+// #region Imports
+import { DIContainer } from "./di.js";
+import { DOMParser } from "xmldom";
+import type { BindingEngine } from "./binding.js";
+// #endregion
+
+// #region Type Aliases & Constants
+export type TagParts = { prefix: string | null; local: string };
+const XML_MIME_TYPE = "application/xml";
+const DEFAULT_CONTENT_PROP = "children";
+const ATTR_ID = "id";
+const ATTR_KEY = "key";
+const ATTR_NAME = "name";
+const ATTR_TYPE = "type";
+const ATTR_FACTORY = "factory";
+const ATTR_CONTENT = "content";
+const XMLNS = "xmlns";
+// #endregion
+
+// Error Classes
+class TSXamlFactoryError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "TSXamlFactoryError";
+  }
+}
+
+class RefNotFoundError extends TSXamlFactoryError {
+  constructor(refId: string) {
+    super(`Unknown x:ref '${refId}'`);
+    this.name = "RefNotFoundError";
+  }
+}
+
+class MissingRefIdError extends TSXamlFactoryError {
+  constructor() {
+    super("x:ref requires id");
+    this.name = "MissingRefIdError";
+  }
 }
 
 export class TSXamlFactory {
-  private ids = new Map<string, any>();
+  // #region Properties
+  private ids: Map<string, unknown> = new Map();
   private x: string;
   private defaultContent: string;
+  // #endregion
+  // #region Constructor
   constructor(private opts: BuildOptions) {
     this.x = opts.xPrefix ?? "x";
-    this.defaultContent = opts.defaultContentProp ?? "children";
+    this.defaultContent = opts.defaultContentProp ?? DEFAULT_CONTENT_PROP;
   }
 
-  async build<T = any>(xml: string): Promise<T> {
-    const doc = new DOMParser().parseFromString(xml, "application/xml");
-    // xmldom does not provide querySelector, so check for parse errors differently if needed
-    // For now, assume valid XML or handle errors at a higher level
+  /**
+   * Builds an object tree from XML using the factory options.
+   * @param xml - The XML string to parse.
+   * @returns The constructed object tree.
+   */
+  async build<T = unknown>(xml: string): Promise<T> {
+    const doc = new DOMParser().parseFromString(xml, XML_MIME_TYPE);
     return (await this.node(doc.documentElement)) as T;
   }
 
-  private q(tag: string) {
+  private parseTag(tag: string): TagParts {
     const i = tag.indexOf(":");
     return i === -1
       ? { prefix: null, local: tag }
       : { prefix: tag.slice(0, i), local: tag.slice(i + 1) };
   }
-  private children(el: Element): Element[] {
-    // xmldom does not provide .children, use .childNodes and filter for element nodes
+
+  private getChildren(el: Element): Element[] {
     if ((el as any).children) {
       return Array.from((el as any).children);
     }
@@ -40,27 +82,34 @@ export class TSXamlFactory {
       (<unknown>Array.from(el.childNodes).filter((n: any) => n.nodeType === 1))
     );
   }
-  private text(el: Element) {
+
+  private getText(el: Element): string {
     return (el.textContent ?? "").trim();
   }
 
-  private setProp(target: any, prop: string, value: any) {
+  private setProp(
+    target: Record<string, unknown>,
+    prop: string,
+    value: unknown
+  ): void {
     const cur = target[prop];
-    if (cur && typeof cur.add === "function") {
+    if (cur && typeof (cur as any).add === "function") {
       Array.isArray(value)
-        ? value.forEach((v: any) => cur.add(v))
-        : cur.add(value);
+        ? (value as unknown[]).forEach((v) => (cur as any).add(v))
+        : (cur as any).add(value);
       return;
     }
     if (Array.isArray(cur)) {
-      Array.isArray(value) ? cur.push(...value) : cur.push(value);
+      Array.isArray(value)
+        ? (cur as unknown[]).push(...(value as unknown[]))
+        : (cur as unknown[]).push(value);
       return;
     }
     if (Array.isArray(value)) target[prop] = value;
     else target[prop] = value;
   }
 
-  private convert(raw: any, hint?: string) {
+  private convert(raw: unknown, hint?: string): unknown {
     if (hint) {
       if (hint === "number") return Number(raw);
       if (hint === "boolean") return /^true|1|yes$/i.test(String(raw));
@@ -75,7 +124,12 @@ export class TSXamlFactory {
     return raw;
   }
 
-  private tryBind(target: any, prop: string, raw: string, el?: Element) {
+  private tryBind(
+    target: Record<string, unknown>,
+    prop: string,
+    raw: string,
+    el?: Element
+  ): boolean {
     const binding = this.opts.binding;
     if (!binding) return false;
     const spec = binding.engine.parse(raw);
@@ -91,7 +145,7 @@ export class TSXamlFactory {
     return true;
   }
 
-  private implicitSlotFor(el: Element, ctor: any): string | null {
+  private implicitSlotFor(el: Element, ctor: unknown): string | null {
     const inline = el.getAttribute(`${this.x}:content`);
     if (inline) return inline;
     const metaCtor =
@@ -99,7 +153,7 @@ export class TSXamlFactory {
     if (metaCtor) return metaCtor;
     const typeMeta = this.opts.container.getTypeMeta(
       el.namespaceURI,
-      this.q(el.tagName).local
+      this.parseTag(el.tagName).local
     );
     const pkg =
       typeof typeMeta === "object" && typeMeta !== null
@@ -115,83 +169,106 @@ export class TSXamlFactory {
     return this.defaultContent || null;
   }
 
-  private isFrameworkAttr(name: string) {
+  private isFrameworkAttr(name: string): boolean {
     return (
-      name.startsWith("xmlns") ||
-      name === `${this.x}:id` ||
-      name === `${this.x}:factory` ||
-      name === `${this.x}:content` ||
+      name.startsWith(XMLNS) ||
+      name === `${this.x}:${ATTR_ID}` ||
+      name === `${this.x}:${ATTR_FACTORY}` ||
+      name === `${this.x}:${ATTR_CONTENT}` ||
       name.startsWith(`${this.x}:`)
     );
   }
 
-  private isRefValue(v: any) {
+  private isRefValue(v: unknown): boolean {
     return typeof v === "string" && /^{\s*x:ref\s+([^}]+)\s*}$/i.test(v);
   }
-  private refId(v: string) {
+  private refId(v: string): string | null {
     return v.match(/^{\s*x:ref\s+([^}]+)\s*}$/i)?.[1] ?? null;
   }
 
-  private async node(el: Element): Promise<any> {
-    const { prefix, local } = this.q(el.tagName);
+  private async node(el: Element): Promise<unknown> {
+    const { prefix, local } = this.parseTag(el.tagName);
     if (prefix === this.x && local === "ref") {
-      const id =
-        el.getAttribute("id") ||
-        el.getAttribute("key") ||
-        el.getAttribute("name");
-      if (!id) throw new Error("x:ref requires id");
-      const obj = this.ids.get(id);
-      if (!obj) throw new Error(`Unknown x:ref '${id}'`);
-      return obj;
+      return this.resolveRefNode(el);
     }
-    if (!prefix)
+    if (!prefix) {
       throw new Error(
         `Top-level elements must be qualified (got <${el.tagName}>)`
       );
-
+    }
     const uri = el.namespaceURI!;
     const instance = this.opts.container.constructXmlType(uri, local);
     const Ctor = instance?.constructor;
+    this.registerId(el, instance);
+    this.applyAttributes(el, instance);
+    await this.applyChildren(el, instance, Ctor);
+    if (typeof instance.onCreated === "function") await instance.onCreated();
+    return instance;
+  }
 
-    const id = el.getAttribute(`${this.x}:id`);
+  /** Resolves an x:ref node and returns the referenced object. */
+  private resolveRefNode(el: Element): unknown {
+    const id =
+      el.getAttribute(ATTR_ID) ||
+      el.getAttribute(ATTR_KEY) ||
+      el.getAttribute(ATTR_NAME);
+    if (!id) throw new MissingRefIdError();
+    const obj = this.ids.get(id);
+    if (!obj) throw new RefNotFoundError(id);
+    return obj;
+  }
+
+  /** Registers an instance by x:id if present. */
+  private registerId(el: Element, instance: Record<string, unknown>): void {
+    const id = el.getAttribute(`${this.x}:${ATTR_ID}`);
     if (id) this.ids.set(id, instance);
+  }
 
-    // attributes
+  /** Applies attributes from the XML element to the instance. */
+  private applyAttributes(
+    el: Element,
+    instance: Record<string, unknown>
+  ): void {
     for (const a of Array.from(el.attributes)) {
       if (this.isFrameworkAttr(a.name)) continue;
       const raw = a.value;
       if (this.isRefValue(raw)) {
         const rid = this.refId(raw)!;
         const ref = this.ids.get(rid);
-        if (!ref)
-          throw new Error(`Unknown x:ref '${rid}' in attribute '${a.name}'`);
+        if (!ref) throw new RefNotFoundError(rid);
         this.setProp(instance, a.name, ref);
       } else if (!this.tryBind(instance, a.name, raw, el)) {
         this.setProp(instance, a.name, this.convert(raw));
       }
     }
+  }
 
-    // children: property elements or implicit content
-    for (const child of this.children(el)) {
-      const { prefix: cp, local: cl } = this.q(child.tagName);
+  /** Applies child elements to the instance, handling property elements and implicit content. */
+  private async applyChildren(
+    el: Element,
+    instance: Record<string, unknown>,
+    Ctor: unknown
+  ): Promise<void> {
+    for (const child of this.getChildren(el)) {
+      const { prefix: cp, local: cl } = this.parseTag(child.tagName);
       if (!cp) {
-        const inner = this.children(child);
-        const hint = child.getAttribute(`${this.x}:type`) || undefined;
+        const inner = this.getChildren(child);
+        const hint = child.getAttribute(`${this.x}:${ATTR_TYPE}`) || undefined;
         if (inner.length === 0) {
-          const t = this.text(child);
+          const t = this.getText(child);
           if (!this.tryBind(instance, cl, t, child))
             this.setProp(instance, cl, this.convert(t, hint));
         } else if (inner.length === 1) {
           this.setProp(instance, cl, await this.node(inner[0]));
         } else {
-          const vals: any[] = [];
+          const vals: unknown[] = [];
           for (const ie of inner) vals.push(await this.node(ie));
           this.setProp(instance, cl, vals);
         }
       } else {
         const slot = this.implicitSlotFor(el, Ctor);
         if (!slot)
-          throw new Error(
+          throw new TSXamlFactoryError(
             `<${el.tagName}> has direct child <${
               (child as Element).tagName
             }> but no content slot declared.`
@@ -199,8 +276,5 @@ export class TSXamlFactory {
         this.setProp(instance, slot, await this.node(child as Element));
       }
     }
-
-    if (typeof instance.onCreated === "function") await instance.onCreated();
-    return instance;
   }
 }

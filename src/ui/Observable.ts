@@ -1,10 +1,21 @@
 import { NotificationRequest } from "./NotificationRequest";
-import { PropertyWillChangeNotification } from "./PropertyWillChangeNotification";
-import { PropertyDidChangeNotification } from "./PropertyDidChangeNotification";
 import { Notification } from "./Notification";
 import { typeId } from "./functions";
+import { PropertyWillChangeNotification } from "./PropertyWillChangeNotification";
+import { PropertyDidChangeNotification } from "./PropertyDidChangeNotification";
 
-export class Observable {
+export interface IObservable {
+  registerObserver(
+    notificationKind: string,
+    target: Object,
+    action: string
+  ): void;
+  notifyPropertyWillChange(propertyName: string): void;
+  notifyPropertyDidChange(propertyName: string): void;
+  notifyListeners(notification: Notification): void;
+}
+
+export class Observable implements IObservable {
   private _observers: NotificationRequest[];
 
   public registerObserver(

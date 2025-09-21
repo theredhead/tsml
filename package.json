@@ -1,5 +1,5 @@
 {
-  "name": "tsxaml-kit",
+  "name": "@theredhead/tsml-kit",
   "version": "0.1.0",
   "description": "TS-XAML: XML -> TypeScript object tree factory with DI, bindings, and observables",
   "type": "module",
